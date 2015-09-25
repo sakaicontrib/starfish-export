@@ -96,65 +96,71 @@ public class GradebookExportByTerm implements Job {
 			
 			//get gradebook for this site, skip if none
 			Gradebook gradebook = null;
+			List<Assignment> assignments = new ArrayList<Assignment>();
+			List<CategoryDefinition> categoryDefinitions = new ArrayList<CategoryDefinition>();
+
 			try {
 				gradebook = (Gradebook)gradebookService.getGradebook(siteId);
+
+				//get list of assignments in gradebook, skip if none
+				assignments = gradebookService.getAssignments(gradebook.getUid());
+				if(assignments == null || assignments.isEmpty()) {
+					log.info("No assignments for site: " + siteId + ", skipping.");
+					continue;
+				}
+				log.debug("Assignments size: " + assignments.size());
+
+				//get course grades. This uses entered grades preferentially
+				Map<String, String> courseGrades = gradebookService.getImportCourseGrade(gradebook.getUid()); 
+
+				//get any categories
+				categoryDefinitions = gradebookService.getCategoryDefinitions(siteId);
+
+				//for each user, get the assignment results for each assignment, with TPE and course grade at the end
+				for(User u: users) {
+
+					StudentGrades g = new StudentGrades(u.getId(), u.getEid());
+
+					log.debug("Member: " + u.getId() + " - " + u.getEid());
+
+					//add in the displayname (lastname, firstname)
+					g.setDisplayName(u.getSortName());
+
+					//if a user has no grade for the assignment ensure they are not missed
+					for(Assignment a: assignments) {
+
+						log.debug("Assignment: " + a.getId() + ": " + a.getName());
+
+						String points = gradebookService.getAssignmentScoreString(gradebook.getUid(), a.getId(), u.getId());
+						g.addGrade(a.getId(), points);
+
+						log.debug("Points: " + points);
+					}
+
+					//determine a grade for any categories
+					for(CategoryDefinition cd: categoryDefinitions) {
+						g.addGrade(cd.getId(), getDisplayGradeForCategory(gradebook.getUid(), u.getId(), cd));
+					}
+
+					//add total points earned
+					g.addGrade(TOTAL_POINTS_EARNED, this.getTotalPointsEarned(gradebook.getUid(), u.getId(), assignments));
+
+					//add total points possible
+					g.addGrade(TOTAL_POINTS_POSSIBLE, this.getTotalPointsPossible(gradebook.getUid(), u.getId(), assignments));				
+
+					//add the course grade. Note the map has eids.
+					g.addGrade(COURSE_GRADE_ASSIGNMENT_ID, courseGrades.get(u.getEid()));
+
+					log.debug("Course Grade: " + courseGrades.get(u.getEid()));
+
+					grades.add(g);
+				}
 			} catch (GradebookNotFoundException gbe) {
 				log.info("No gradebook for site: " + siteId + ", skipping.");
 				continue;
-			}
-			
-			//get list of assignments in gradebook, skip if none
-			List<Assignment> assignments = gradebookService.getAssignments(gradebook.getUid());
-			if(assignments == null || assignments.isEmpty()) {
-				log.info("No assignments for site: " + siteId + ", skipping.");
+			} catch (Exception e) {
+				log.error("Problem while processing gbExport for site: " + siteId, e);
 				continue;
-			}
-			log.debug("Assignments size: " + assignments.size());
-
-			//get course grades. This uses entered grades preferentially
-	        Map<String, String> courseGrades = gradebookService.getImportCourseGrade(gradebook.getUid()); 
-	        
-	        //get any categories
-			List<CategoryDefinition> categoryDefinitions = gradebookService.getCategoryDefinitions(siteId);
-			   
-			//for each user, get the assignment results for each assignment, with TPE and course grade at the end
-			for(User u: users) {
-				
-				StudentGrades g = new StudentGrades(u.getId(), u.getEid());
-
-				log.debug("Member: " + u.getId() + " - " + u.getEid());
-				
-				//add in the displayname (lastname, firstname)
-				g.setDisplayName(u.getSortName());
-				
-				//if a user has no grade for the assignment ensure they are not missed
-				for(Assignment a: assignments) {
-					
-					log.debug("Assignment: " + a.getId() + ": " + a.getName());
-					
-					String points = gradebookService.getAssignmentScoreString(gradebook.getUid(), a.getId(), u.getId());
-					g.addGrade(a.getId(), points);
-									
-					log.debug("Points: " + points);
-				}
-				
-				//determine a grade for any categories
-				for(CategoryDefinition cd: categoryDefinitions) {
-					g.addGrade(cd.getId(), getDisplayGradeForCategory(gradebook.getUid(), u.getId(), cd));
-				}
-				
-				//add total points earned
-				g.addGrade(TOTAL_POINTS_EARNED, this.getTotalPointsEarned(gradebook.getUid(), u.getId(), assignments));
-				
-				//add total points possible
-				g.addGrade(TOTAL_POINTS_POSSIBLE, this.getTotalPointsPossible(gradebook.getUid(), u.getId(), assignments));				
-				
-				//add the course grade. Note the map has eids.
-				g.addGrade(COURSE_GRADE_ASSIGNMENT_ID, courseGrades.get(u.getEid()));
-				
-				log.debug("Course Grade: " + courseGrades.get(u.getEid()));
-				
-				grades.add(g);
 			}
 		
 			//now write the grades
