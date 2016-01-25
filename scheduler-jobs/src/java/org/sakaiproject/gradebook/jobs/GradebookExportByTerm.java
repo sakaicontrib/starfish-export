@@ -69,23 +69,31 @@ public class GradebookExportByTerm implements Job {
 	public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
 		
 		log.info(JOB_NAME + " started.");
-		
+
 		//get admin session
 		establishSession(JOB_NAME);
-		
+
 		//get all sites that match the criteria
-		List<Site> sites = getSites();
-		
-		log.info("Sites to process: " + sites.size());
-		
+		String[] termEids = serverConfigurationService.getStrings("gradebook.export.term");
+		if (termEids.length < 1) {
+			termEids[0] = getMostRecentTerm();
+		}
+
+		// Loop through all terms provided in sakai.properties
+		for (String termEid : termEids) {
+
+			List<Site> sites = getSites(termEid);
+
+			log.info("Sites to process for term " + termEid + ": " + sites.size());
+
 		for(Site s:sites) {
-			
+
 			String siteId = s.getId();
-			
+
 			//get the grades for each site
 			List<StudentGrades> grades = new ArrayList<StudentGrades>();
 			log.info("Processing site: " + siteId + " - " + s.getTitle());
-			
+
 			//get users in site, skip if none
 			List<User> users = getValidUsersInSite(siteId);
 			Collections.sort(users, new LastNameComparator());
@@ -93,7 +101,7 @@ public class GradebookExportByTerm implements Job {
 				log.info("No users in site: " + siteId + ", skipping.");
 				continue;
 			}
-			
+
 			//get gradebook for this site, skip if none
 			Gradebook gradebook = null;
 			List<Assignment> assignments = new ArrayList<Assignment>();
@@ -308,6 +316,7 @@ public class GradebookExportByTerm implements Job {
 				}
 			}
 		}
+		}
 		
 		log.info(JOB_NAME + " ended.");
 	}
@@ -346,12 +355,12 @@ public class GradebookExportByTerm implements Job {
 	 * Get all sites that match the criteria, filter out special sites and my workspace sites
 	 * @return
 	 */
-	private List<Site> getSites() {
+	private List<Site> getSites(String termEid) {
 
 		//setup property criteria
 		//this could be extended to dynamically fill the map with properties and values from sakai.props
 		Map<String, String> propertyCriteria = new HashMap<String,String>();
-		propertyCriteria.put("term_eid", serverConfigurationService.getString("gradebook.export.term", getMostRecentTerm()));
+		propertyCriteria.put("term_eid", termEid);
 
 		List<Site> sites = new ArrayList<Site>();
 			
