@@ -6,6 +6,7 @@
 		<groupId>org.sakaiproject</groupId>
     	<artifactId>master</artifactId>
     	<version>11-SNAPSHOT</version>
+    	<relativePath>../master/pom.xml</relativePath>
  	</parent>
  	
     <name>Sakai Gradebook Export</name>
