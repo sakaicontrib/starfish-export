@@ -2,65 +2,87 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0">
     <modelVersion>4.0.0</modelVersion>
 
-	<parent>
-		<groupId>org.sakaiproject</groupId>
-    	<artifactId>master</artifactId>
-    	<version>11-SNAPSHOT</version>
-    	<relativePath>../master/pom.xml</relativePath>
- 	</parent>
- 	
+    <parent>
+      <groupId>org.sakaiproject</groupId>
+      <artifactId>master</artifactId>
+      <version>19-SNAPSHOT</version>
+    </parent>
+
     <name>Sakai Gradebook Export</name>
     <groupId>org.sakaiproject.gradebook</groupId>
-  	<artifactId>gradebook-export</artifactId>
-  	<version>1.5</version>
-  	
-  	<packaging>pom</packaging>
+    <artifactId>gradebook-export</artifactId>
+    <version>1.5</version>
+
+    <packaging>pom</packaging>
 
     <modules>
         <module>pack</module>
         <module>scheduler-jobs</module>
     </modules>
 
+    <profiles>
+        <profile>
+          <id>snapshots</id>
+          <activation>
+            <activeByDefault>false</activeByDefault>
+            <property>
+              <name>snapshots</name>
+            </property>
+          </activation>
+          <repositories>
+            <repository>
+              <id>sonatype-nexus-snapshots</id>
+              <name>Sonatype Nexus Snapshots</name>
+              <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+              <releases>
+                <enabled>false</enabled>
+              </releases>
+              <snapshots>
+                <enabled>true</enabled>
+              </snapshots>
+            </repository>
+          </repositories>
+        </profile>
+    </profiles>
+
     <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.sakaiproject.gradebook</groupId>
-  				<artifactId>gradebook-export-jobs</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            
-            <!-- currently bound to 11 snapshot until sakai 10 is released) -->
-			<dependency>
-				<groupId>org.sakaiproject.edu-services.course-management</groupId>
-  				<artifactId>coursemanagement-api</artifactId>
-  				<version>11-SNAPSHOT</version>
-  				<scope>provided</scope>
-			</dependency>
-			<dependency>
-				<groupId>org.sakaiproject.edu-services.gradebook</groupId>
-  				<artifactId>gradebook-service-api</artifactId>
-				<version>11-SNAPSHOT</version>
-  				<scope>provided</scope>
-			</dependency>
-			<dependency>
-				<groupId>org.sakaiproject.edu-services.gradebook</groupId>
-  				<artifactId>gradebook-service-hibernate</artifactId>
-				<version>11-SNAPSHOT</version>
-  				<scope>provided</scope>
-			</dependency>
-			
-			<!-- third party libs -->
-			<dependency>
-				<groupId>org.projectlombok</groupId>
-  				<artifactId>lombok</artifactId>
-  				<version>1.12.4</version>
-  				<scope>provided</scope>
-			</dependency>
-			<dependency>
-				<groupId>com.opencsv</groupId>
-				<artifactId>opencsv</artifactId>
-				<version>3.5</version>
-			</dependency>
-          </dependencies>
+      <dependencies>
+        <dependency>
+          <groupId>org.sakaiproject.gradebook</groupId>
+          <artifactId>gradebook-export-jobs</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.sakaiproject.edu-services.course-management</groupId>
+          <artifactId>coursemanagement-api</artifactId>
+          <version>${sakai.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.sakaiproject.edu-services.gradebook</groupId>
+          <artifactId>gradebook-service-api</artifactId>
+          <version>${sakai.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.sakaiproject.edu-services.gradebook</groupId>
+          <artifactId>gradebook-service-hibernate</artifactId>
+          <version>${sakai.version}</version>
+          <scope>provided</scope>
+        </dependency>
+
+        <!-- third party libs -->
+        <dependency>
+          <groupId>org.projectlombok</groupId>
+          <artifactId>lombok</artifactId>
+          <version>${sakai.lombok.version}</version>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.opencsv</groupId>
+          <artifactId>opencsv</artifactId>
+          <version>${sakai.opencsv.version}</version>
+        </dependency>
+      </dependencies>
     </dependencyManagement>
 </project>
