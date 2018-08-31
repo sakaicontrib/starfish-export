@@ -82,6 +82,7 @@
           <groupId>com.opencsv</groupId>
           <artifactId>opencsv</artifactId>
           <version>${sakai.opencsv.version}</version>
+          <scope>provided</scope>
         </dependency>
       </dependencies>
     </dependencyManagement>

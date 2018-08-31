@@ -189,7 +189,7 @@ public class GradebookExportByTerm implements Job {
 				
 				CSVWriter writer;
 				try {
-					writer = new CSVWriter(new FileWriter(file), ',');
+					writer = new CSVWriter(new FileWriter(file), ',', CSVWriter.DEFAULT_QUOTE_CHARACTER, CSVWriter.DEFAULT_ESCAPE_CHARACTER, CSVWriter.DEFAULT_LINE_END);
 			   
 					CSVHelper csv = new CSVHelper();
 					
@@ -313,7 +313,7 @@ public class GradebookExportByTerm implements Job {
 					log.info("Successfully wrote CSV to: " + file);
 			           
 				} catch (IOException e) {
-					log.equals("Error writing CSV: " + e.getClass() + " : " + e.getMessage());
+					log.error("Error writing CSV: " + e.getClass() + " : " + e.getMessage());
 				}
 			}
 		}
