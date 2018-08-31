@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import lombok.Setter;
-import lombok.extern.apachecommons.CommonsLog;
+import lombok.extern.slf4j.Slf4j;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
@@ -56,7 +56,7 @@ import com.opencsv.CSVWriter;
  * @author Steve Swinsburg (steve.swinsburg@gmail.com)
  *
  */
-@CommonsLog
+@Slf4j
 public class GradebookExportByTerm implements Job {
 
 	private final String JOB_NAME = "GradebookExportByTerm";
