@@ -7,11 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -19,12 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
-
-import org.apache.commons.beanutils.ConversionException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.quartz.Job;
@@ -38,12 +30,9 @@ import org.sakaiproject.coursemanagement.api.CourseManagementService;
 import org.sakaiproject.event.api.EventTrackingService;
 import org.sakaiproject.event.api.UsageSessionService;
 import org.sakaiproject.exception.IdUnusedException;
-import org.sakaiproject.gradebook.model.CSVHelper;
 import org.sakaiproject.gradebook.model.StarfishAssessment;
 import org.sakaiproject.gradebook.model.StarfishScore;
-import org.sakaiproject.gradebook.model.StudentGrades;
 import org.sakaiproject.service.gradebook.shared.Assignment;
-import org.sakaiproject.service.gradebook.shared.CommentDefinition;
 import org.sakaiproject.service.gradebook.shared.GradeDefinition;
 import org.sakaiproject.service.gradebook.shared.GradebookNotFoundException;
 import org.sakaiproject.service.gradebook.shared.GradebookService;
@@ -57,12 +46,14 @@ import org.sakaiproject.tool.gradebook.Gradebook;
 import org.sakaiproject.user.api.User;
 import org.sakaiproject.user.api.UserDirectoryService;
 
-import com.opencsv.CSVWriter;
 import com.opencsv.bean.ColumnPositionMappingStrategy;
 import com.opencsv.bean.StatefulBeanToCsv;
 import com.opencsv.bean.StatefulBeanToCsvBuilder;
 import com.opencsv.exceptions.CsvDataTypeMismatchException;
 import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
+
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 
 /**
@@ -76,8 +67,6 @@ public class StarfishExport implements Job {
 	private final static SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	private final static String nowTimestamp = tsFormatter.format(new Date());
 
-	// do all of the work
-	// this has been combined into one method. It's a lot of code but it reduces additional lookups and duplication of code, refactor if time allows
 	public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
 		
 		log.info(JOB_NAME + " started.");
@@ -135,18 +124,15 @@ public class StarfishExport implements Job {
 	
 				for (Site s : sites) {
 					String siteId = s.getId();
+					log.debug("Processing site: {} - {}", siteId, s.getTitle());
 					String courseSectionIntegrationId = siteId;
 					
 					// TODO: maybe the proper course_section_integration_id is a site property or an enrollment set?
 	
-					//get the grades for each site
-					List<StudentGrades> grades = new ArrayList<StudentGrades>();
-					log.debug("Processing site: " + siteId + " - " + s.getTitle());
-	
 					//get users in site, skip if none
 					List<User> users = getValidUsersInSite(siteId);
 					if(users == null || users.isEmpty()) {
-						log.info("No users in site: " + siteId + ", skipping.");
+						log.info("No users in site: {}, skipping", siteId);
 						continue;
 					}
 	
@@ -176,27 +162,19 @@ public class StarfishExport implements Job {
 	
 							// for each user, get the assignment results for each assignment
 							for (User u : users) {
-								StudentGrades g = new StudentGrades(u.getId(), u.getEid());
-								//log.debug("Member: " + u.getId() + " - " + u.getEid());
-	
-								//String points = gradebookService.getAssignmentScoreString(gradebook.getUid(), a.getId(), u.getId());
 								GradeDefinition gd = gradebookService.getGradeDefinitionForStudentForItem(gradebook.getUid(), a.getId(), u.getId());
 						
 								if (gd != null && gd.getDateRecorded() != null && gd.getGrade() != null) {
 									String gradedTimestamp = tsFormatter.format(gd.getDateRecorded());
 									scList.add(new StarfishScore(gbIntegrationId, courseSectionIntegrationId, u.getEid(), gd.getGrade(), "", gradedTimestamp));
 								}
-								//g.addGrade(a.getId(), points);
-								//log.debug("Points: " + points);
 							}
 						}
-	
-						//get course grades. This uses entered grades preferentially
-						// Map<String, String> courseGrades = gradebookService.getImportCourseGrade(gradebook.getUid());
+
 						String courseGradeId = courseSectionIntegrationId + "-CG";
 						saList.add(new StarfishAssessment(courseGradeId, courseSectionIntegrationId, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
 
-						// Get the final course grades
+						// Get the final course grades. Note the map has eids.
 						Map<String, String> courseGrades = gradebookService.getImportCourseGrade(gradebook.getUid(), true, false);
 						for (Map.Entry<String, String> entry : courseGrades.entrySet()) {
 							String userEid = entry.getKey();
@@ -206,126 +184,12 @@ public class StarfishExport implements Job {
 								scList.add(new StarfishScore(courseGradeId, courseSectionIntegrationId, userEid, userGrade, "", nowTimestamp));
 							}
 						}
-						//add the course grade. Note the map has eids.
-						// g.addGrade(COURSE_GRADE_ASSIGNMENT_ID, courseGrades.get(u.getEid()));
-						// log.debug("Course Grade: " + courseGrades.get(u.getEid()));
-						// grades.add(g);
 					} catch (GradebookNotFoundException gbe) {
 						log.info("No gradebook for site: " + siteId + ", skipping.");
 						continue;
 					} catch (Exception e) {
 						log.error("Problem while processing gbExport for site: " + siteId, e);
 						continue;
-					}
-	
-					//now write the grades
-					if(!grades.isEmpty()) {			
-	
-						CSVHelper csv = new CSVHelper();
-	
-						//set the CSV header from the assignment titles and add additional fields
-						List<String> header = new ArrayList<String>();
-						header.add("Student ID");
-						header.add("Student Name");
-	
-						//add assignment name and then the points possible for the assignment
-						//then another column for the comments
-						for(Assignment a: assignments) {
-							header.add(a.getName() + " [" + a.getPoints() + "]");
-							header.add("Comments");
-						}
-	
-						//add these too
-						header.add("Total Points Earned [Points Possible]");
-						header.add("Course Grade");
-	
-						// Make sure all row sizes are consistent
-						int headerSize = header.size();
-	
-						csv.setHeader(header.toArray(new String[headerSize]));
-	
-						//create a formatted list of data using the grade records info and user info, using the order of the assignment list
-						//this puts it in the order we need for the CSV
-						for(StudentGrades sg: grades) {
-	
-							List<String> row = new ArrayList<String>(headerSize);
-	
-							//add name details
-							row.add(sg.getUserEid());
-							row.add(sg.getDisplayName());		
-	
-							//add grades
-							Map<Long,String> g = sg.getGrades();
-							for(Assignment a: assignments) {
-								row.add(g.get(a.getId()));
-	
-								//get comment for each assignment
-								CommentDefinition commentDefinition = gradebookService.getAssignmentScoreComment(gradebook.getUid(), a.getId(), sg.getUserId());
-								String comment = null;
-								if(commentDefinition != null) {
-									comment = commentDefinition.getCommentText();
-								}
-								row.add(comment);
-							}
-	
-							//add total points earned and possible
-							// row.add(g.get(TOTAL_POINTS_EARNED) + " [" + g.get(TOTAL_POINTS_POSSIBLE) + "]");
-	
-							//add course grade
-							// row.add(g.get(COURSE_GRADE_ASSIGNMENT_ID));
-	
-							// Make sure row is same size as header
-							if (row.size() != headerSize) {
-								log.error("Row not same size as header: " + row.size () + " vs header size of " + headerSize);
-							}
-	
-							log.debug("Row: " + row);
-	
-							csv.addRow(row.toArray(new String[row.size()]));
-						}
-	
-						//add a row to show the grade mapping (sorted via the value) (2 columns)
-						Map<String,Double> baseMap = gradebook.getSelectedGradeMapping().getGradeMap();
-						ValueComparator gradeMappingsComparator = new ValueComparator(baseMap);
-						TreeMap<String,Double> sortedGradeMappings = new TreeMap<String,Double>(gradeMappingsComparator);
-						sortedGradeMappings.putAll(baseMap);
-	
-						List<String> mappings = new ArrayList<String>();
-						for(String key: sortedGradeMappings.keySet()) {
-							mappings.add(key + "=" + baseMap.get(key));
-						}
-	
-						// Informational rows. Need to fill out the rows for CSV consistency
-						List<String> spacerRow = new ArrayList<String>();
-						List<String> siteIdRow = new ArrayList<String>();
-						List<String> siteTitleRow = new ArrayList<String>();
-						List<String> mappingRow = new ArrayList<String>();
-	
-						siteIdRow.add("Site ID");
-						siteIdRow.add(s.getId());
-						siteTitleRow.add("Site Title");
-						siteTitleRow.add(s.getTitle());
-						mappingRow.add("Mappings");
-						mappingRow.add(StringUtils.join(mappings, ','));
-	
-						for (int i = 0; i < headerSize; i++) {
-							if (spacerRow.size() < headerSize) spacerRow.add("");
-							if (siteIdRow.size() < headerSize) siteIdRow.add("");
-							if (siteTitleRow.size() < headerSize) siteTitleRow.add("");
-							if (mappingRow.size() < headerSize) mappingRow.add("");
-						}
-	
-						csv.addRow(spacerRow.toArray(new String[spacerRow.size()]));
-						csv.addRow(siteIdRow.toArray(new String[siteIdRow.size()]));
-						csv.addRow(siteTitleRow.toArray(new String[siteTitleRow.size()]));
-						csv.addRow(mappingRow.toArray(new String[mappingRow.size()]));
-	
-						//write it all out
-						// assessmentWriter.writeNext(csv.getHeader());
-						// assessmentWriter.writeAll(csv.getRows());
-						// assessmentWriter.close();
-	
-						log.info("Successfully wrote CSV to: " + assessmentFile);
 					}
 				}
 			}
@@ -343,8 +207,7 @@ public class StarfishExport implements Job {
 		} catch (CsvRequiredFieldEmptyException e) {
 			log.error("Missing required field for CSV", e);
 		}
-		
-		
+
 		log.info(JOB_NAME + " ended.");
 	}
 	
@@ -529,17 +392,6 @@ class StarfishScoreMappingStrategy<T> extends ColumnPositionMappingStrategy<T> {
     }
 }
 
-/**
- * Comparator class for sorting a list of users by last name
- */
-class LastNameComparator implements Comparator<User> {
-	
-    @Override
-    public int compare(User u1, User u2) {
-    	return u1.getLastName().compareTo(u2.getLastName());
-	}
-   
-}
 
 /**
  * Comparator class for sorting a grade map by its value
