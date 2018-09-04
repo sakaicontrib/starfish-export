@@ -13,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,6 +74,7 @@ public class StarfishExport implements Job {
 	private final String JOB_NAME = "StarfishExport";
 	private final static SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
 	private final static SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	private final static String nowTimestamp = tsFormatter.format(new Date());
 
 	// do all of the work
 	// this has been combined into one method. It's a lot of code but it reduces additional lookups and duplication of code, refactor if time allows
@@ -143,7 +145,6 @@ public class StarfishExport implements Job {
 	
 					//get users in site, skip if none
 					List<User> users = getValidUsersInSite(siteId);
-					Collections.sort(users, new LastNameComparator());
 					if(users == null || users.isEmpty()) {
 						log.info("No users in site: " + siteId + ", skipping.");
 						continue;
@@ -159,10 +160,10 @@ public class StarfishExport implements Job {
 						//get list of assignments in gradebook, skip if none
 						assignments = gradebookService.getAssignments(gradebook.getUid());
 						if(assignments == null || assignments.isEmpty()) {
-							log.info("No assignments for site: " + siteId + ", skipping.");
+							log.debug("No assignments for site: {}, skipping", siteId);
 							continue;
 						}
-						log.debug("Assignments size: " + assignments.size());
+						log.debug("Assignments for site ({}) size: {}", siteId, assignments.size());
 						
 						for (Assignment a : assignments) {
 							String gbIntegrationId = courseSectionIntegrationId + "-" + a.getId();
@@ -176,12 +177,15 @@ public class StarfishExport implements Job {
 							// for each user, get the assignment results for each assignment
 							for (User u : users) {
 								StudentGrades g = new StudentGrades(u.getId(), u.getEid());
-								log.debug("Member: " + u.getId() + " - " + u.getEid());
+								//log.debug("Member: " + u.getId() + " - " + u.getEid());
 	
 								//String points = gradebookService.getAssignmentScoreString(gradebook.getUid(), a.getId(), u.getId());
 								GradeDefinition gd = gradebookService.getGradeDefinitionForStudentForItem(gradebook.getUid(), a.getId(), u.getId());
-								String gradedTimestamp = gd.getDateRecorded() != null ? tsFormatter.format(gd.getDateRecorded()) : "";
-								scList.add(new StarfishScore(gbIntegrationId, courseSectionIntegrationId, u.getEid(), gd.getGrade(), "", gradedTimestamp));
+						
+								if (gd != null && gd.getDateRecorded() != null && gd.getGrade() != null) {
+									String gradedTimestamp = tsFormatter.format(gd.getDateRecorded());
+									scList.add(new StarfishScore(gbIntegrationId, courseSectionIntegrationId, u.getEid(), gd.getGrade(), "", gradedTimestamp));
+								}
 								//g.addGrade(a.getId(), points);
 								//log.debug("Points: " + points);
 							}
@@ -189,7 +193,19 @@ public class StarfishExport implements Job {
 	
 						//get course grades. This uses entered grades preferentially
 						// Map<String, String> courseGrades = gradebookService.getImportCourseGrade(gradebook.getUid());
-						saList.add(new StarfishAssessment(courseSectionIntegrationId + "-CG", courseSectionIntegrationId, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
+						String courseGradeId = courseSectionIntegrationId + "-CG";
+						saList.add(new StarfishAssessment(courseGradeId, courseSectionIntegrationId, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
+
+						// Get the final course grades
+						Map<String, String> courseGrades = gradebookService.getImportCourseGrade(gradebook.getUid(), true, false);
+						for (Map.Entry<String, String> entry : courseGrades.entrySet()) {
+							String userEid = entry.getKey();
+							String userGrade = entry.getValue();
+
+							if (userGrade != null && !userGrade.equals("0.0")) {
+								scList.add(new StarfishScore(courseGradeId, courseSectionIntegrationId, userEid, userGrade, "", nowTimestamp));
+							}
+						}
 						//add the course grade. Note the map has eids.
 						// g.addGrade(COURSE_GRADE_ASSIGNMENT_ID, courseGrades.get(u.getEid()));
 						// log.debug("Course Grade: " + courseGrades.get(u.getEid()));
