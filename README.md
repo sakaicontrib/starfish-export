@@ -1,7 +1,5 @@
-# Sakai Gradebook Export
-A Quartz job for exporting gradebook data from Sakai to a CSV file.
-
-Once CSV file is generated per site, and each file contains a single row for each user containing all grades for all assignments, and the course grade at the end. The sites to be exported can be configured in ``sakai.properties``.
+# Starfish Export
+A Quartz job for exporting gradebook and assignment data from Sakai to a series of CSV files.
 
 ## Building
 ```
@@ -14,13 +12,12 @@ In ``sakai.properties`` set the following options:
 
 The path where the exported CSV files will be saved:
 ```
-gradebook.export.path=/Users/steve/Desktop
+starfish.export.path=/mnt/starfish/export
 ```
 
 The sites matching this academic term will be exported. Leave this blank to use the most current active term
 ```
-gradebook.export.term=2013
+gradebook.export.term=FA18
 ```
 
 ---
-Code development sponsored by Longsight (www.longsight.com)

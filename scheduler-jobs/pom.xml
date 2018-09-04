@@ -4,14 +4,14 @@
 	
 	<parent>
 		<groupId>org.sakaiproject.gradebook</groupId>
-    	<artifactId>gradebook-export</artifactId>
-    	<version>1.5</version>
+    	<artifactId>starfish-export</artifactId>
+    	<version>1.0</version>
  	</parent>
  	
-	<name>Sakai Gradebook Export :: Jobs</name>
+	<name>Starfish Export :: Jobs</name>
 	<groupId>org.sakaiproject.gradebook</groupId>
-  	<artifactId>gradebook-export-jobs</artifactId>
-  	<version>1.5</version>
+  	<artifactId>starfish-export-jobs</artifactId>
+  	<version>1.0</version>
 
 	<packaging>jar</packaging>
   	<!-- dont specify a deploy target, this will be bundled into the component -->

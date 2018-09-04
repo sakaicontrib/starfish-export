@@ -4,8 +4,8 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans
 			    http://www.springframework.org/schema/beans/spring-beans.xsd">
 	
-	<bean id="org.sakaiproject.gradebook.jobs.GradebookExportByTerm"
-		class="org.sakaiproject.gradebook.jobs.GradebookExportByTerm">
+	<bean id="org.sakaiproject.gradebook.jobs.StarfishExport"
+		class="org.sakaiproject.gradebook.jobs.StarfishExport">
 		
 		<property name="sessionManager" ref="org.sakaiproject.tool.api.SessionManager" />
 		<property name="siteService" ref="org.sakaiproject.site.api.SiteService" />
@@ -33,11 +33,11 @@
 		scope="singleton" init-method="init">
 		
 		<property name="beanId">
-			<value>org.sakaiproject.gradebook.jobs.GradebookExportByTerm</value>
+			<value>org.sakaiproject.gradebook.jobs.StarfishExport</value>
 		</property>
       
 		<property name="jobName">
-			<value>Gradebook Export By Term</value>
+			<value>Starfish Export</value>
 		</property>
 		
       	<property name="schedulerManager">
