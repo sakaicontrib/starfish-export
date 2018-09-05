@@ -1,4 +1,4 @@
-package org.sakaiproject.gradebook.model;
+package org.sakaiproject.starfish.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

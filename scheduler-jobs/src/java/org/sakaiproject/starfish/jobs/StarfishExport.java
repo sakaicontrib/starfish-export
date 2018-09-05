@@ -1,4 +1,4 @@
-package org.sakaiproject.gradebook.jobs;
+package org.sakaiproject.starfish.jobs;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -30,8 +30,6 @@ import org.sakaiproject.coursemanagement.api.CourseManagementService;
 import org.sakaiproject.event.api.EventTrackingService;
 import org.sakaiproject.event.api.UsageSessionService;
 import org.sakaiproject.exception.IdUnusedException;
-import org.sakaiproject.gradebook.model.StarfishAssessment;
-import org.sakaiproject.gradebook.model.StarfishScore;
 import org.sakaiproject.service.gradebook.shared.Assignment;
 import org.sakaiproject.service.gradebook.shared.GradeDefinition;
 import org.sakaiproject.service.gradebook.shared.GradebookNotFoundException;
@@ -40,6 +38,8 @@ import org.sakaiproject.site.api.Site;
 import org.sakaiproject.site.api.SiteService;
 import org.sakaiproject.site.api.SiteService.SelectionType;
 import org.sakaiproject.site.api.SiteService.SortType;
+import org.sakaiproject.starfish.model.StarfishAssessment;
+import org.sakaiproject.starfish.model.StarfishScore;
 import org.sakaiproject.tool.api.Session;
 import org.sakaiproject.tool.api.SessionManager;
 import org.sakaiproject.tool.gradebook.Gradebook;

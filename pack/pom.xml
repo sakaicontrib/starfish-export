@@ -27,7 +27,7 @@
         <dependency>
 			<groupId>com.opencsv</groupId>
 			<artifactId>opencsv</artifactId>
-			<scope>runtime</scope>
+			<scope>provided</scope>
 		</dependency>
     </dependencies>
 

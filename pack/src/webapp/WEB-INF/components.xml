@@ -4,8 +4,8 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans
 			    http://www.springframework.org/schema/beans/spring-beans.xsd">
 	
-	<bean id="org.sakaiproject.gradebook.jobs.StarfishExport"
-		class="org.sakaiproject.gradebook.jobs.StarfishExport">
+	<bean id="org.sakaiproject.starfish.jobs.StarfishExport"
+		class="org.sakaiproject.starfish.jobs.StarfishExport">
 		
 		<property name="sessionManager" ref="org.sakaiproject.tool.api.SessionManager" />
 		<property name="siteService" ref="org.sakaiproject.site.api.SiteService" />
@@ -28,12 +28,12 @@
    		- the beanId property must match the bean id from above
    		- the jobName property is the text that will be rendered in the list of jobs in Sakai
 	-->
-	<bean id="org.sakaiproject.api.app.scheduler.JobBeanWrapper.org.sakaiproject.gradebook.jobs.ExportGradebook"
+	<bean id="org.sakaiproject.api.app.scheduler.JobBeanWrapper.org.sakaiproject.starfish.jobs.StarfishExport"
 		class="org.sakaiproject.component.app.scheduler.jobs.SpringJobBeanWrapper"
 		scope="singleton" init-method="init">
 		
 		<property name="beanId">
-			<value>org.sakaiproject.gradebook.jobs.StarfishExport</value>
+			<value>org.sakaiproject.starfish.jobs.StarfishExport</value>
 		</property>
       
 		<property name="jobName">
