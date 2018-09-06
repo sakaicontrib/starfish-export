@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
@@ -23,10 +24,12 @@ import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.sakaiproject.authz.api.AuthzGroupService;
+import org.sakaiproject.authz.api.GroupProvider;
 import org.sakaiproject.authz.api.SecurityService;
 import org.sakaiproject.component.api.ServerConfigurationService;
 import org.sakaiproject.coursemanagement.api.AcademicSession;
 import org.sakaiproject.coursemanagement.api.CourseManagementService;
+import org.sakaiproject.coursemanagement.api.Membership;
 import org.sakaiproject.event.api.EventTrackingService;
 import org.sakaiproject.event.api.UsageSessionService;
 import org.sakaiproject.exception.IdUnusedException;
@@ -67,6 +70,29 @@ public class StarfishExport implements Job {
 	private final static SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	private final static String nowTimestamp = tsFormatter.format(new Date());
 
+	@Setter
+	private SessionManager sessionManager;
+	@Setter
+	private UsageSessionService usageSessionService;
+	@Setter
+	private AuthzGroupService authzGroupService;
+	@Setter
+	private EventTrackingService eventTrackingService;
+	@Setter
+	private ServerConfigurationService serverConfigurationService;
+	@Setter
+	private SiteService siteService;
+	@Setter
+	private UserDirectoryService userDirectoryService;
+	@Setter
+	private GradebookService gradebookService;
+	@Setter
+	private GroupProvider groupProvider;
+	@Setter
+	private CourseManagementService courseManagementService;
+	@Setter
+	private SecurityService securityService;
+
 	public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
 		
 		log.info(JOB_NAME + " started.");
@@ -75,7 +101,7 @@ public class StarfishExport implements Job {
 		establishSession(JOB_NAME);
 
 		//get all sites that match the criteria
-		String[] termEids = serverConfigurationService.getStrings("gradebook.export.term");
+		String[] termEids = serverConfigurationService.getStrings("starfish.export.term");
 		if (termEids == null || termEids.length < 1) {
 			termEids = getCurrentTerms();
 		}
@@ -99,6 +125,8 @@ public class StarfishExport implements Job {
 		ColumnPositionMappingStrategy<StarfishScore> scoreMappingStrategy = new StarfishScoreMappingStrategy<>();
 		scoreMappingStrategy.setType(StarfishScore.class);
 		scoreMappingStrategy.setColumnMapping(StarfishScore.HEADER);
+		
+		boolean useProvider = serverConfigurationService.getBoolean("starfish.use.provider", false);
 
 		try (
 				BufferedWriter assessmentWriter = Files.newBufferedWriter(assessmentFile, StandardCharsets.UTF_8);
@@ -124,11 +152,27 @@ public class StarfishExport implements Job {
 	
 				for (Site s : sites) {
 					String siteId = s.getId();
-					log.debug("Processing site: {} - {}", siteId, s.getTitle());
-					String courseSectionIntegrationId = siteId;
-					
-					// TODO: maybe the proper course_section_integration_id is a site property or an enrollment set?
-	
+					Map<String, Set<String>> providerUserMap = new HashMap<>();
+
+					if (useProvider) {
+						String unpackedProviderId = StringUtils.trimToNull(s.getProviderGroupId());
+						if (unpackedProviderId == null) continue;
+						String[] providers = groupProvider.unpackId(unpackedProviderId);
+						// Section section = courseManagementService.getSection(providerId);
+						//EnrollmentSet es = section.getEnrollmentSet();
+						
+						for (String providerId : providers) {
+							Set<Membership> sm = courseManagementService.getSectionMemberships(providerId);
+							Set<String> providerUsers = new HashSet<>();
+							for (Membership m : sm) {
+								providerUsers.add(m.getUserId());
+								log.debug("user: {}, status: {}", m.getUserId(), m.getStatus());
+							}
+							providerUserMap.put(providerId, providerUsers);
+						}
+					}
+					log.debug("Processing site: {} - {}, useProvider: {}", siteId, s.getTitle(), useProvider);
+
 					//get users in site, skip if none
 					List<User> users = getValidUsersInSite(siteId);
 					if(users == null || users.isEmpty()) {
@@ -152,13 +196,23 @@ public class StarfishExport implements Job {
 						log.debug("Assignments for site ({}) size: {}", siteId, assignments.size());
 						
 						for (Assignment a : assignments) {
-							String gbIntegrationId = courseSectionIntegrationId + "-" + a.getId();
+							String gbIntegrationId = siteId + "-" + a.getId();
 							String description = a.getExternalAppName() != null ? "From " + a.getExternalAppName() : "";
 							String dueDate = a.getDueDate() != null ? dateFormatter.format(a.getDueDate()) : "";
 							int isCounted = a.isCounted() ? 1 : 0;
-							StarfishAssessment sa = new StarfishAssessment(gbIntegrationId, courseSectionIntegrationId, a.getName(), description, dueDate, a.getPoints().toString(), isCounted, 0, 0);
-							log.debug("StarfishAssessment: {}", sa.toString());
-							saList.add(sa);
+							
+							if (!providerUserMap.isEmpty()) {
+								// Write out one CSV row per section (provider)
+								for (String p : providerUserMap.keySet()) {
+									gbIntegrationId = p + "-" + a.getId();
+									StarfishAssessment sa = new StarfishAssessment(gbIntegrationId, p, a.getName(), description, dueDate, a.getPoints().toString(), isCounted, 0, 0);
+									log.debug("StarfishAssessment: {}", sa.toString());
+									saList.add(sa);
+								}
+							}
+							else {
+								saList.add(new StarfishAssessment(gbIntegrationId, siteId, a.getName(), description, dueDate, a.getPoints().toString(), isCounted, 0, 0));
+							}
 	
 							// for each user, get the assignment results for each assignment
 							for (User u : users) {
@@ -166,13 +220,36 @@ public class StarfishExport implements Job {
 						
 								if (gd != null && gd.getDateRecorded() != null && gd.getGrade() != null) {
 									String gradedTimestamp = tsFormatter.format(gd.getDateRecorded());
-									scList.add(new StarfishScore(gbIntegrationId, courseSectionIntegrationId, u.getEid(), gd.getGrade(), "", gradedTimestamp));
+
+									if (!providerUserMap.isEmpty()) {
+										for (Entry<String, Set<String>> e : providerUserMap.entrySet()) {
+											String providerId = e.getKey();
+											Set<String> usersInProvider = e.getValue();
+											String userEid = u.getEid();
+											
+											if (usersInProvider.contains(userEid)) {
+												scList.add(new StarfishScore(gbIntegrationId, providerId, userEid, gd.getGrade(), "", gradedTimestamp));
+											}
+										}
+									}
+									else {
+										scList.add(new StarfishScore(gbIntegrationId, siteId, u.getEid(), gd.getGrade(), "", gradedTimestamp));
+									}
 								}
 							}
 						}
 
-						String courseGradeId = courseSectionIntegrationId + "-CG";
-						saList.add(new StarfishAssessment(courseGradeId, courseSectionIntegrationId, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
+						String courseGradeId = siteId + "-CG";
+						if (!providerUserMap.isEmpty()) {
+							// Write out one CSV row per section (provider)
+							for (String p : providerUserMap.keySet()) {
+								courseGradeId = p + "-CG";
+								saList.add(new StarfishAssessment(courseGradeId, p, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
+							}
+						}
+						else {
+							saList.add(new StarfishAssessment(courseGradeId, siteId, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
+						}
 
 						// Get the final course grades. Note the map has eids.
 						Map<String, String> courseGrades = gradebookService.getImportCourseGrade(gradebook.getUid(), true, false);
@@ -181,7 +258,19 @@ public class StarfishExport implements Job {
 							String userGrade = entry.getValue();
 
 							if (userGrade != null && !userGrade.equals("0.0")) {
-								scList.add(new StarfishScore(courseGradeId, courseSectionIntegrationId, userEid, userGrade, "", nowTimestamp));
+								if (!providerUserMap.isEmpty()) {
+									for (Entry<String, Set<String>> e : providerUserMap.entrySet()) {
+										String providerId = e.getKey();
+										Set<String> usersInProvider = e.getValue();
+										
+										if (usersInProvider.contains(userEid)) {
+											scList.add(new StarfishScore(courseGradeId, providerId, userEid, userGrade, "", nowTimestamp));
+										}
+									}
+								}
+								else {
+									scList.add(new StarfishScore(courseGradeId, siteId, userEid, userGrade, "", nowTimestamp));
+								}
 							}
 						}
 					} catch (GradebookNotFoundException gbe) {
@@ -197,9 +286,6 @@ public class StarfishExport implements Job {
 			// Write the entire list of objects out to CSV
 			assessmentBeanToCsv.write(saList);
 			scoreBeanToCsv.write(scList);
-		}
-		catch (GradebookNotFoundException e) {
-			log.warn("Gradebook not found", e);
 		} catch (IOException e) {
 			log.error("Could not start writer", e);
 		} catch (CsvDataTypeMismatchException e) {
@@ -343,36 +429,6 @@ public class StarfishExport implements Job {
 		return termSet.toArray(new String[termSet.size()]);
 
 	}
-	
-	@Setter
-	private SessionManager sessionManager;
-	
-	@Setter
-	private UsageSessionService usageSessionService;
-	
-	@Setter
-	private AuthzGroupService authzGroupService;
-	
-	@Setter
-	private EventTrackingService eventTrackingService;
-	
-	@Setter
-	private ServerConfigurationService serverConfigurationService;
-	
-	@Setter
-	private SiteService siteService;
-	
-	@Setter
-	private UserDirectoryService userDirectoryService;
-	
-	@Setter
-	private GradebookService gradebookService;
-	
-	@Setter
-	private CourseManagementService courseManagementService;
-	
-	@Setter
-	private SecurityService securityService;
 	
 }
 
