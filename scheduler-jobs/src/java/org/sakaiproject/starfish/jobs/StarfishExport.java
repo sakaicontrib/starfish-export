@@ -3,6 +3,7 @@ package org.sakaiproject.starfish.jobs;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -254,22 +255,26 @@ public class StarfishExport implements Job {
 						// Get the final course grades. Note the map has eids.
 						Map<String, String> courseGrades = gradebookService.getImportCourseGrade(gradebook.getUid(), true, false);
 						for (Map.Entry<String, String> entry : courseGrades.entrySet()) {
-							String userEid = entry.getKey();
-							String userGrade = entry.getValue();
+							final String userEid = entry.getKey();
+							final String userGrade = entry.getValue();
 
 							if (userGrade != null && !userGrade.equals("0.0")) {
+								BigDecimal bd = new BigDecimal(userGrade);
+								bd = bd.setScale(2, BigDecimal.ROUND_HALF_UP);
+								final String roundedGrade = bd.toString();
+
 								if (!providerUserMap.isEmpty()) {
 									for (Entry<String, Set<String>> e : providerUserMap.entrySet()) {
 										String providerId = e.getKey();
 										Set<String> usersInProvider = e.getValue();
 										
 										if (usersInProvider.contains(userEid)) {
-											scList.add(new StarfishScore(courseGradeId, providerId, userEid, userGrade, "", nowTimestamp));
+											scList.add(new StarfishScore(courseGradeId, providerId, userEid, roundedGrade, "", nowTimestamp));
 										}
 									}
 								}
 								else {
-									scList.add(new StarfishScore(courseGradeId, siteId, userEid, userGrade, "", nowTimestamp));
+									scList.add(new StarfishScore(courseGradeId, siteId, userEid, roundedGrade, "", nowTimestamp));
 								}
 							}
 						}
