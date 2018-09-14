@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -287,7 +288,15 @@ public class StarfishExport implements Job {
 					}
 				}
 			}
-			
+
+			// Sort the two lists
+			Collections.sort(saList, Comparator.comparing(StarfishAssessment::getIntegration_id));
+			Collections.sort(scList,
+					Comparator.comparing(StarfishScore::getGradebook_item_integration_id)
+					.thenComparing(StarfishScore::getCourse_section_integration_id)
+					.thenComparing(StarfishScore::getUser_integration_id)
+			);
+
 			// Write the entire list of objects out to CSV
 			assessmentBeanToCsv.write(saList);
 			scoreBeanToCsv.write(scList);
