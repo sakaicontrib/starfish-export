@@ -391,6 +391,9 @@ public class StarfishExport implements Job {
 
 		} catch (IdUnusedException e) {
 			return null;
+		} catch (Exception e) {
+			log.warn("Error retrieving users", e);
+			return null;
 		}
 		
 	}
