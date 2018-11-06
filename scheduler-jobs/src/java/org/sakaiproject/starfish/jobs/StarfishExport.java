@@ -33,7 +33,12 @@ import org.sakaiproject.authz.api.SecurityService;
 import org.sakaiproject.component.api.ServerConfigurationService;
 import org.sakaiproject.coursemanagement.api.AcademicSession;
 import org.sakaiproject.coursemanagement.api.CourseManagementService;
+import org.sakaiproject.coursemanagement.api.CourseOffering;
+import org.sakaiproject.coursemanagement.api.CourseSet;
+import org.sakaiproject.coursemanagement.api.Enrollment;
+import org.sakaiproject.coursemanagement.api.EnrollmentSet;
 import org.sakaiproject.coursemanagement.api.Membership;
+import org.sakaiproject.coursemanagement.api.Section;
 import org.sakaiproject.event.api.EventTrackingService;
 import org.sakaiproject.event.api.UsageSessionService;
 import org.sakaiproject.exception.IdUnusedException;
@@ -168,16 +173,54 @@ public class StarfishExport implements InterruptableJob {
 						String unpackedProviderId = StringUtils.trimToNull(s.getProviderGroupId());
 						if (unpackedProviderId == null) continue;
 						String[] providers = groupProvider.unpackId(unpackedProviderId);
-						// Section section = courseManagementService.getSection(providerId);
-						//EnrollmentSet es = section.getEnrollmentSet();
+						log.debug("The unpacked provider: {}", unpackedProviderId);
+
 						
 						for (String providerId : providers) {
-							Set<Membership> sm = courseManagementService.getSectionMemberships(providerId);
 							Set<String> providerUsers = new HashSet<>();
-							for (Membership m : sm) {
-								providerUsers.add(m.getUserId());
-								log.debug("user: {}, status: {}", m.getUserId(), m.getStatus());
+							Set<String> cmIds = new HashSet<>();
+							cmIds.add(providerId);
+							
+							// Check the EnrollmentSet
+							Section section = courseManagementService.getSection(providerId);
+							EnrollmentSet es = section.getEnrollmentSet();
+							if (es != null) {
+								Set<Enrollment> enrolls = courseManagementService.getEnrollments(es.getEid());
+								for (Enrollment e : enrolls) {
+									if (e.isDropped()) continue;
+									providerUsers.add(e.getUserId());
+								}
 							}
+
+							// Get enrollments for this direct provider
+							Set<Membership> mm = courseManagementService.getSectionMemberships(providerId);
+							for (Membership m : mm) {
+								providerUsers.add(m.getUserId());
+							}
+
+							// Check the CourseOffering
+							CourseOffering courseOffering = courseManagementService.getCourseOffering(section.getCourseOfferingEid());
+							if (courseOffering != null) {
+								Set<Membership> coMemberships = courseManagementService.getCourseOfferingMemberships(section.getCourseOfferingEid());
+								for (Membership m : coMemberships) {
+									providerUsers.add(m.getUserId());
+								}
+							}
+							
+							Set<String> courseSetEIDs = courseOffering.getCourseSetEids();
+							if (courseSetEIDs != null) {
+								for (String courseSetEID : courseSetEIDs) {
+									CourseSet courseSet = courseManagementService.getCourseSet(courseSetEID);
+									if (courseSet != null) {
+										Set<Membership> courseSetMemberships = courseManagementService.getCourseSetMemberships(courseSetEID);
+										for (Membership m : courseSetMemberships) {
+											providerUsers.add(m.getUserId());
+										}
+									}
+								}
+							}
+
+							log.debug("The provider {} has {} users", providerId, providerUsers.size());
 							providerUserMap.put(providerId, providerUsers);
 						}
 					}
@@ -230,6 +273,7 @@ public class StarfishExport implements InterruptableJob {
 						
 								if (gd != null && gd.getDateRecorded() != null && gd.getGrade() != null) {
 									String gradedTimestamp = tsFormatter.format(gd.getDateRecorded());
+									StarfishScore score = null;
 
 									if (!providerUserMap.isEmpty()) {
 										for (Entry<String, Set<String>> e : providerUserMap.entrySet()) {
@@ -238,13 +282,27 @@ public class StarfishExport implements InterruptableJob {
 											String userEid = u.getEid();
 											
 											if (usersInProvider.contains(userEid)) {
-												scList.add(new StarfishScore(gbIntegrationId, providerId, userEid, gd.getGrade(), "", gradedTimestamp));
+												score = new StarfishScore(gbIntegrationId, providerId, userEid, gd.getGrade(), "", gradedTimestamp);
+											}
+											else {
+												log.debug("User not in provider list {}, {}", userEid, usersInProvider.size());
 											}
 										}
 									}
 									else {
-										scList.add(new StarfishScore(gbIntegrationId, siteId, u.getEid(), gd.getGrade(), "", gradedTimestamp));
+										score = new StarfishScore(gbIntegrationId, siteId, u.getEid(), gd.getGrade(), "", gradedTimestamp);
 									}
+									
+									if (score != null) {
+										log.debug("StarfishScore: {}", score.toString());
+										scList.add(score);
+									}
+								}
+								else if (gd == null || gd.getGrade() == null) {
+									log.debug("Grade was null, {}, {}, {}", gradebook.getUid(), a.getId(), u.getId());
+								}
+								else if (gd.getDateRecorded() == null) {
+									log.debug("Grade was not null ({}), date recorded was null {}, {}, {}", gd.getGrade(), gradebook.getUid(), a.getId(), u.getId());
 								}
 							}
 						}
