@@ -284,9 +284,6 @@ public class StarfishExport implements InterruptableJob {
 											if (usersInProvider.contains(userEid)) {
 												score = new StarfishScore(gbIntegrationId, providerId, userEid, gd.getGrade(), "", gradedTimestamp);
 											}
-											else {
-												log.debug("User not in provider list {}, {}", userEid, usersInProvider.size());
-											}
 										}
 									}
 									else {
