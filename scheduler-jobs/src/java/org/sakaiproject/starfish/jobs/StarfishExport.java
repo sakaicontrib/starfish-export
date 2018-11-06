@@ -22,9 +22,11 @@ import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
+import org.quartz.InterruptableJob;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import org.quartz.UnableToInterruptJobException;
 import org.sakaiproject.authz.api.AuthzGroupService;
 import org.sakaiproject.authz.api.GroupProvider;
 import org.sakaiproject.authz.api.SecurityService;
@@ -65,7 +67,7 @@ import lombok.extern.slf4j.Slf4j;
  * Job to export gradebook information to CSV for all students in all sites (optionally filtered by term)
  */
 @Slf4j
-public class StarfishExport implements Job {
+public class StarfishExport implements InterruptableJob {
 
 	private final String JOB_NAME = "StarfishExport";
 	private final static SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
@@ -94,6 +96,9 @@ public class StarfishExport implements Job {
 	private CourseManagementService courseManagementService;
 	@Setter
 	private SecurityService securityService;
+
+	// This job can be interrupted
+	private boolean run = true;
 
 	public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
 		
@@ -148,11 +153,14 @@ public class StarfishExport implements Job {
 	
 			// Loop through all terms provided in sakai.properties
 			for (String termEid : termEids) {
+				if (!run) break;
 	
 				List<Site> sites = getSites(termEid);
 				log.info("Sites to process for term " + termEid + ": " + sites.size());
 	
 				for (Site s : sites) {
+					if (!run) break;
+
 					String siteId = s.getId();
 					Map<String, Set<String>> providerUserMap = new HashMap<>();
 
@@ -445,6 +453,12 @@ public class StarfishExport implements Job {
 		
 		return termSet.toArray(new String[termSet.size()]);
 
+	}
+
+
+	@Override
+	public void interrupt() throws UnableToInterruptJobException {
+		run = false;
 	}
 	
 }
