@@ -170,59 +170,68 @@ public class StarfishExport implements InterruptableJob {
 					Map<String, Set<String>> providerUserMap = new HashMap<>();
 
 					if (useProvider) {
-						String unpackedProviderId = StringUtils.trimToNull(s.getProviderGroupId());
-						if (unpackedProviderId == null) continue;
-						String[] providers = groupProvider.unpackId(unpackedProviderId);
-						log.debug("The unpacked provider: {}", unpackedProviderId);
+						try {
+							String unpackedProviderId = StringUtils.trimToNull(s.getProviderGroupId());
+							if (unpackedProviderId == null) continue;
+							String[] providers = groupProvider.unpackId(unpackedProviderId);
+							log.debug("The unpacked provider: {}", unpackedProviderId);
 
 						
-						for (String providerId : providers) {
-							Set<String> providerUsers = new HashSet<>();
-							Set<String> cmIds = new HashSet<>();
-							cmIds.add(providerId);
+							for (String providerId : providers) {
+								Set<String> providerUsers = new HashSet<>();
+								Set<String> cmIds = new HashSet<>();
+								cmIds.add(providerId);
 							
-							// Check the EnrollmentSet
-							Section section = courseManagementService.getSection(providerId);
-							EnrollmentSet es = section.getEnrollmentSet();
-							if (es != null) {
-								Set<Enrollment> enrolls = courseManagementService.getEnrollments(es.getEid());
-								for (Enrollment e : enrolls) {
-									if (e.isDropped()) continue;
-									providerUsers.add(e.getUserId());
+								// Check the EnrollmentSet
+								Section section = courseManagementService.getSection(providerId);
+								EnrollmentSet es = section.getEnrollmentSet();
+								if (es != null) {
+									Set<Enrollment> enrolls = courseManagementService.getEnrollments(es.getEid());
+									for (Enrollment e : enrolls) {
+										if (e.isDropped()) continue;
+										providerUsers.add(e.getUserId());
+									}
 								}
-							}
 
-							// Get enrollments for this direct provider
-							Set<Membership> mm = courseManagementService.getSectionMemberships(providerId);
-							for (Membership m : mm) {
-								providerUsers.add(m.getUserId());
-							}
-
-							// Check the CourseOffering
-							CourseOffering courseOffering = courseManagementService.getCourseOffering(section.getCourseOfferingEid());
-							if (courseOffering != null) {
-								Set<Membership> coMemberships = courseManagementService.getCourseOfferingMemberships(section.getCourseOfferingEid());
-								for (Membership m : coMemberships) {
+								// Get enrollments for this direct provider
+								Set<Membership> mm = courseManagementService.getSectionMemberships(providerId);
+								for (Membership m : mm) {
 									providerUsers.add(m.getUserId());
 								}
-							}
+
+								// Check the CourseOffering
+								CourseOffering courseOffering = courseManagementService.getCourseOffering(section.getCourseOfferingEid());
+								if (courseOffering != null) {
+									Set<Membership> coMemberships = courseManagementService.getCourseOfferingMemberships(section.getCourseOfferingEid());
+									for (Membership m : coMemberships) {
+										providerUsers.add(m.getUserId());
+									}
+								}
 							
-							Set<String> courseSetEIDs = courseOffering.getCourseSetEids();
-							if (courseSetEIDs != null) {
-								for (String courseSetEID : courseSetEIDs) {
-									CourseSet courseSet = courseManagementService.getCourseSet(courseSetEID);
-									if (courseSet != null) {
-										Set<Membership> courseSetMemberships = courseManagementService.getCourseSetMemberships(courseSetEID);
-										for (Membership m : courseSetMemberships) {
-											providerUsers.add(m.getUserId());
+								Set<String> courseSetEIDs = courseOffering.getCourseSetEids();
+								if (courseSetEIDs != null) {
+									for (String courseSetEID : courseSetEIDs) {
+										CourseSet courseSet = courseManagementService.getCourseSet(courseSetEID);
+										if (courseSet != null) {
+											Set<Membership> courseSetMemberships = courseManagementService.getCourseSetMemberships(courseSetEID);
+											for (Membership m : courseSetMemberships) {
+												providerUsers.add(m.getUserId());
+											}
 										}
 									}
 								}
-							}
 
-							log.debug("The provider {} has {} users", providerId, providerUsers.size());
-							providerUserMap.put(providerId, providerUsers);
+								log.debug("The provider {} has {} users", providerId, providerUsers.size());
+								providerUserMap.put(providerId, providerUsers);
+							}
+						} catch (RuntimeException e) {
+							log.error("Failed while fetching provider information for site: " +
+								  siteId +
+								  ". Skipping this site.",
+								  e);
+							continue;
 						}
+
 					}
 					log.debug("Processing site: {} - {}, useProvider: {}", siteId, s.getTitle(), useProvider);
 
