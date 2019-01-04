@@ -257,8 +257,7 @@ public class StarfishExport implements InterruptableJob {
 							if (!providerUserMap.isEmpty()) {
 								// Write out one CSV row per section (provider)
 								for (String p : providerUserMap.keySet()) {
-									gbIntegrationId = p + "-" + a.getId();
-									StarfishAssessment sa = new StarfishAssessment(gbIntegrationId, p, a.getName(), description, dueDate, a.getPoints().toString(), isCounted, 0, 0);
+									StarfishAssessment sa = new StarfishAssessment(p + "-" + a.getId(), p, a.getName(), description, dueDate, a.getPoints().toString(), isCounted, 0, 0);
 									log.debug("StarfishAssessment: {}", sa.toString());
 									saList.add(sa);
 								}
@@ -277,12 +276,12 @@ public class StarfishExport implements InterruptableJob {
 
 									if (!providerUserMap.isEmpty()) {
 										for (Entry<String, Set<String>> e : providerUserMap.entrySet()) {
-											String providerId = e.getKey();
-											Set<String> usersInProvider = e.getValue();
-											String userEid = u.getEid();
+											final String providerId = e.getKey();
+											final Set<String> usersInProvider = e.getValue();
+											final String userEid = u.getEid();
 											
 											if (usersInProvider.contains(userEid)) {
-												score = new StarfishScore(gbIntegrationId, providerId, userEid, gd.getGrade(), "", gradedTimestamp);
+												score = new StarfishScore(providerId + "-" + a.getId(), providerId, userEid, gd.getGrade(), "", gradedTimestamp);
 											}
 										}
 									}
