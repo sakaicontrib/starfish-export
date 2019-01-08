@@ -322,8 +322,7 @@ public class StarfishExport implements InterruptableJob {
 						if (!providerUserMap.isEmpty()) {
 							// Write out one CSV row per section (provider)
 							for (String p : providerUserMap.keySet()) {
-								courseGradeId = p + "-CG";
-								saList.add(new StarfishAssessment(courseGradeId, p, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
+								saList.add(new StarfishAssessment(p + "-CG", p, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
 							}
 						}
 						else {
@@ -347,7 +346,7 @@ public class StarfishExport implements InterruptableJob {
 										Set<String> usersInProvider = e.getValue();
 										
 										if (usersInProvider.contains(userEid)) {
-											scList.add(new StarfishScore(courseGradeId, providerId, userEid, roundedGrade, "", nowTimestamp));
+											scList.add(new StarfishScore(providerId + "-CG", providerId, userEid, roundedGrade, "", nowTimestamp));
 										}
 									}
 								}
