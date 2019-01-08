@@ -67,6 +67,8 @@ import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.stream.Collectors;
+
 
 /**
  * Job to export gradebook information to CSV for all students in all sites (optionally filtered by term)
@@ -257,6 +259,8 @@ public class StarfishExport implements InterruptableJob {
 						}
 						log.debug("Assignments for site ({}) size: {}", siteId, assignments.size());
 						
+						GradeMatrix allGrades = new GradeMatrix(gradebookService, siteId, assignments, users);
+
 						for (Assignment a : assignments) {
 							String gbIntegrationId = siteId + "-" + a.getId();
 							String description = a.getExternalAppName() != null ? "From " + a.getExternalAppName() : "";
@@ -277,10 +281,12 @@ public class StarfishExport implements InterruptableJob {
 	
 							// for each user, get the assignment results for each assignment
 							for (User u : users) {
-								GradeDefinition gd = gradebookService.getGradeDefinitionForStudentForItem(gradebook.getUid(), a.getId(), u.getId());
-						
-								if (gd != null && gd.getDateRecorded() != null && gd.getGrade() != null) {
-									String gradedTimestamp = tsFormatter.format(gd.getDateRecorded());
+								GradeDefinition gradeDefinition = allGrades.findGradeDefinition(a.getId(), u.getId());
+								String grade = (gradeDefinition == null) ? null : gradeDefinition.getGrade();
+								Date dateRecorded = (gradeDefinition == null) ? null : gradeDefinition.getDateRecorded();
+
+								if (grade != null && dateRecorded != null) {
+									String gradedTimestamp = tsFormatter.format(dateRecorded);
 									StarfishScore score = null;
 
 									if (!providerUserMap.isEmpty()) {
@@ -290,12 +296,12 @@ public class StarfishExport implements InterruptableJob {
 											final String userEid = u.getEid();
 											
 											if (usersInProvider.contains(userEid)) {
-												score = new StarfishScore(providerId + "-" + a.getId(), providerId, userEid, gd.getGrade(), "", gradedTimestamp);
+												score = new StarfishScore(providerId + "-" + a.getId(), providerId, userEid, grade, "", gradedTimestamp);
 											}
 										}
 									}
 									else {
-										score = new StarfishScore(gbIntegrationId, siteId, u.getEid(), gd.getGrade(), "", gradedTimestamp);
+										score = new StarfishScore(gbIntegrationId, siteId, u.getEid(), grade, "", gradedTimestamp);
 									}
 									
 									if (score != null) {
@@ -303,11 +309,11 @@ public class StarfishExport implements InterruptableJob {
 										scList.add(score);
 									}
 								}
-								else if (gd == null || gd.getGrade() == null) {
+								else if (grade == null) {
 									log.debug("Grade was null, {}, {}, {}", gradebook.getUid(), a.getId(), u.getId());
 								}
-								else if (gd.getDateRecorded() == null) {
-									log.debug("Grade was not null ({}), date recorded was null {}, {}, {}", gd.getGrade(), gradebook.getUid(), a.getId(), u.getId());
+								else if (dateRecorded == null) {
+									log.debug("Grade was not null ({}), date recorded was null {}, {}, {}", grade, gradebook.getUid(), a.getId(), u.getId());
 								}
 							}
 						}
@@ -524,6 +530,44 @@ public class StarfishExport implements InterruptableJob {
 		run = false;
 	}
 	
+}
+
+class GradeMatrix {
+
+	private Map<Long, List<GradeDefinition>> gradeMap;
+
+	public GradeMatrix(GradebookService gradebookService,
+			   String siteId,
+			   List<Assignment> assignments,
+			   List<User> users) {
+
+		// Gradeable Object ID -> Results
+		gradeMap = new HashMap<>();
+
+		List<String> studentIds = users.stream().map(User::getId).collect(Collectors.toList());
+
+		for (Assignment a : assignments) {
+			List<GradeDefinition> grades = gradebookService.getGradesForStudentsForItem(siteId, a.getId(), studentIds);
+			gradeMap.put(a.getId(), grades);
+		}
+	}
+
+	public GradeDefinition findGradeDefinition(long assignmentId, String userId) {
+		List<GradeDefinition> gradesForAssignment = gradeMap.get(assignmentId);
+
+		if (gradesForAssignment == null) {
+			return null;
+		}
+
+		for (GradeDefinition gd : gradesForAssignment) {
+			if (userId.equals(gd.getStudentUid())) {
+				return gd;
+			}
+		}
+
+		return null;
+	}
+
 }
 
 class StarfishAssessmentMappingStrategy<T> extends ColumnPositionMappingStrategy<T> {
