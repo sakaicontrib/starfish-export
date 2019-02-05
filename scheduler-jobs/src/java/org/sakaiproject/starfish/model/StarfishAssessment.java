@@ -8,7 +8,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @ToString(includeFieldNames=true)
 public class StarfishAssessment {
-	public static final String[] HEADER = {"integration_id","course_section_integration_id","title","description","due_dt","points_possible","scorable_ind","calculated_ind","external_grade_ind"};
+	public static final String[] HEADER = {"integration_id","course_section_integration_id","title","description","due_dt","points_possible","scorable_ind","calculated_ind","external_grade_ind","visible_ind"};
 
 	@Getter @Setter
 	private String integration_id;
@@ -36,4 +36,7 @@ public class StarfishAssessment {
 
 	@Getter @Setter
 	private int external_grade_ind;
+
+	@Getter @Setter
+	private int visible_ind;
 }

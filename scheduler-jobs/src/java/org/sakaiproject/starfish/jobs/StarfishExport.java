@@ -266,17 +266,18 @@ public class StarfishExport implements InterruptableJob {
 							String description = a.getExternalAppName() != null ? "From " + a.getExternalAppName() : "";
 							String dueDate = a.getDueDate() != null ? dateFormatter.format(a.getDueDate()) : "";
 							int isCounted = a.isCounted() ? 1 : 0;
+							int isVisible = a.isReleased() ? 1 : 0;
 							
 							if (!providerUserMap.isEmpty()) {
 								// Write out one CSV row per section (provider)
 								for (String p : providerUserMap.keySet()) {
-									StarfishAssessment sa = new StarfishAssessment(p + "-" + a.getId(), p, a.getName(), description, dueDate, a.getPoints().toString(), isCounted, 0, 0);
+									StarfishAssessment sa = new StarfishAssessment(p + "-" + a.getId(), p, a.getName(), description, dueDate, a.getPoints().toString(), isCounted, 0, 0, isVisible);
 									log.debug("StarfishAssessment: {}", sa.toString());
 									saList.add(sa);
 								}
 							}
 							else {
-								saList.add(new StarfishAssessment(gbIntegrationId, siteId, a.getName(), description, dueDate, a.getPoints().toString(), isCounted, 0, 0));
+								saList.add(new StarfishAssessment(gbIntegrationId, siteId, a.getName(), description, dueDate, a.getPoints().toString(), isCounted, 0, 0, isVisible));
 							}
 	
 							// for each user, get the assignment results for each assignment
@@ -322,11 +323,11 @@ public class StarfishExport implements InterruptableJob {
 						if (!providerUserMap.isEmpty()) {
 							// Write out one CSV row per section (provider)
 							for (String p : providerUserMap.keySet()) {
-								saList.add(new StarfishAssessment(p + "-CG", p, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
+								saList.add(new StarfishAssessment(p + "-CG", p, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1, 1));
 							}
 						}
 						else {
-							saList.add(new StarfishAssessment(courseGradeId, siteId, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1));
+							saList.add(new StarfishAssessment(courseGradeId, siteId, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1, 1));
 						}
 
 						// Get the final course grades. Note the map has eids.
