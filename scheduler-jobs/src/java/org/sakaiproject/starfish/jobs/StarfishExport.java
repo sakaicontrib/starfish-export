@@ -320,14 +320,15 @@ public class StarfishExport implements InterruptableJob {
 						}
 
 						String courseGradeId = siteId + "-CG";
+						final int courseGradeDisplayed = gradebook.isCourseGradeDisplayed() ? 1 : 0;
 						if (!providerUserMap.isEmpty()) {
 							// Write out one CSV row per section (provider)
 							for (String p : providerUserMap.keySet()) {
-								saList.add(new StarfishAssessment(p + "-CG", p, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1, 1));
+								saList.add(new StarfishAssessment(p + "-CG", p, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, courseGradeDisplayed, courseGradeDisplayed));
 							}
 						}
 						else {
-							saList.add(new StarfishAssessment(courseGradeId, siteId, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, 1, 1));
+							saList.add(new StarfishAssessment(courseGradeId, siteId, "Course Grade", "Calculated Course Grade", "", "100", 0, 1, courseGradeDisplayed, courseGradeDisplayed));
 						}
 
 						// Get the final course grades. Note the map has eids.
