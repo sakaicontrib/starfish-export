@@ -281,33 +281,27 @@ public class StarfishExport implements InterruptableJob {
 							}
 	
 							// for each user, get the assignment results for each assignment
-							for (User u : users) {
+							for (final User u : users) {
+								final String userEid = u.getEid();
 								GradeDefinition gradeDefinition = allGrades.findGradeDefinition(a.getId(), u.getId());
 								String grade = (gradeDefinition == null) ? null : gradeDefinition.getGrade();
 								Date dateRecorded = (gradeDefinition == null) ? null : gradeDefinition.getDateRecorded();
 
 								if (grade != null && dateRecorded != null) {
-									String gradedTimestamp = tsFormatter.format(dateRecorded);
-									StarfishScore score = null;
+									final String gradedTimestamp = tsFormatter.format(dateRecorded);
 
 									if (!providerUserMap.isEmpty()) {
 										for (Entry<String, Set<String>> e : providerUserMap.entrySet()) {
 											final String providerId = e.getKey();
 											final Set<String> usersInProvider = e.getValue();
-											final String userEid = u.getEid();
 											
 											if (usersInProvider.contains(userEid)) {
-												score = new StarfishScore(providerId + "-" + a.getId(), providerId, userEid, grade, "", gradedTimestamp);
+												scList.add(new StarfishScore(providerId + "-" + a.getId(), providerId, userEid, grade, "", gradedTimestamp));
 											}
 										}
 									}
 									else {
-										score = new StarfishScore(gbIntegrationId, siteId, u.getEid(), grade, "", gradedTimestamp);
-									}
-									
-									if (score != null) {
-										log.debug("StarfishScore: {}", score.toString());
-										scList.add(score);
+										scList.add(new StarfishScore(gbIntegrationId, siteId, userEid, grade, "", gradedTimestamp));
 									}
 								}
 								else if (grade == null) {
