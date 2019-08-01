@@ -266,6 +266,7 @@ public class StarfishExport implements InterruptableJob {
 							String description = a.getExternalAppName() != null ? "From " + a.getExternalAppName() : "";
 							String dueDate = a.getDueDate() != null ? dateFormatter.format(a.getDueDate()) : "";
 							int isCounted = a.isCounted() ? 1 : 0;
+							String isExempt = a.isCounted() ? "0" : "1";
 							int isVisible = a.isReleased() ? 1 : 0;
 							
 							if (!providerUserMap.isEmpty()) {
@@ -296,12 +297,12 @@ public class StarfishExport implements InterruptableJob {
 											final Set<String> usersInProvider = e.getValue();
 											
 											if (usersInProvider.contains(userEid)) {
-												scList.add(new StarfishScore(providerId + "-" + a.getId(), providerId, userEid, grade, "", gradedTimestamp));
+												scList.add(new StarfishScore(providerId + "-" + a.getId(), providerId, userEid, grade, "", gradedTimestamp, "", isExempt));
 											}
 										}
 									}
 									else {
-										scList.add(new StarfishScore(gbIntegrationId, siteId, userEid, grade, "", gradedTimestamp));
+										scList.add(new StarfishScore(gbIntegrationId, siteId, userEid, grade, "", gradedTimestamp, "", isExempt));
 									}
 								}
 								else if (grade == null) {
@@ -342,12 +343,12 @@ public class StarfishExport implements InterruptableJob {
 										Set<String> usersInProvider = e.getValue();
 										
 										if (usersInProvider.contains(userEid)) {
-											scList.add(new StarfishScore(providerId + "-CG", providerId, userEid, roundedGrade, "", nowTimestamp));
+											scList.add(new StarfishScore(providerId + "-CG", providerId, userEid, roundedGrade, "", nowTimestamp, "", "0"));
 										}
 									}
 								}
 								else {
-									scList.add(new StarfishScore(courseGradeId, siteId, userEid, roundedGrade, "", nowTimestamp));
+									scList.add(new StarfishScore(courseGradeId, siteId, userEid, roundedGrade, "", nowTimestamp, "", "0"));
 								}
 							}
 						}
