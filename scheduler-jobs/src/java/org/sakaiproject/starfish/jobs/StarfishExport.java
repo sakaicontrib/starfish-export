@@ -47,13 +47,16 @@ import org.sakaiproject.service.gradebook.shared.GradeDefinition;
 import org.sakaiproject.service.gradebook.shared.GradebookNotFoundException;
 import org.sakaiproject.service.gradebook.shared.GradebookService;
 import org.sakaiproject.site.api.Site;
+import org.sakaiproject.site.api.SitePage;
 import org.sakaiproject.site.api.SiteService;
 import org.sakaiproject.site.api.SiteService.SelectionType;
 import org.sakaiproject.site.api.SiteService.SortType;
+import org.sakaiproject.site.api.ToolConfiguration;
 import org.sakaiproject.starfish.model.StarfishAssessment;
 import org.sakaiproject.starfish.model.StarfishScore;
 import org.sakaiproject.tool.api.Session;
 import org.sakaiproject.tool.api.SessionManager;
+import org.sakaiproject.tool.api.ToolManager;
 import org.sakaiproject.tool.gradebook.Gradebook;
 import org.sakaiproject.user.api.User;
 import org.sakaiproject.user.api.UserDirectoryService;
@@ -80,6 +83,7 @@ public class StarfishExport implements InterruptableJob {
 	private final static SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
 	private final static SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	private final static String nowTimestamp = tsFormatter.format(new Date());
+	private final static String[] GRADEBOOK_TOOLS = {"sakai.gradebook.tool", "sakai.gradebookng", "sakai.gradebook.gwt.rpc"};
 
 	@Setter
 	private SessionManager sessionManager;
@@ -103,6 +107,8 @@ public class StarfishExport implements InterruptableJob {
 	private CourseManagementService courseManagementService;
 	@Setter
 	private SecurityService securityService;
+	@Setter
+	private ToolManager toolManager;
 
 	// This job can be interrupted
 	private boolean run = true;
@@ -140,7 +146,9 @@ public class StarfishExport implements InterruptableJob {
 		scoreMappingStrategy.setType(StarfishScore.class);
 		scoreMappingStrategy.setColumnMapping(StarfishScore.HEADER);
 		
-		boolean useProvider = serverConfigurationService.getBoolean("starfish.use.provider", false);
+		final boolean useProvider = serverConfigurationService.getBoolean("starfish.use.provider", false);
+		final boolean excludeUnpublishedSites = serverConfigurationService.getBoolean("starfish.exclude.unpublished", false);
+		final boolean hideUnreleasedFromStudents = serverConfigurationService.getBoolean("starfish.hide.unreleased", false);
 
 		try (
 				BufferedWriter assessmentWriter = Files.newBufferedWriter(assessmentFile, StandardCharsets.UTF_8);
@@ -162,7 +170,7 @@ public class StarfishExport implements InterruptableJob {
 			for (String termEid : termEids) {
 				if (!run) break;
 	
-				List<Site> sites = getSites(termEid);
+				List<Site> sites = getSites(termEid, excludeUnpublishedSites);
 				log.info("Sites to process for term " + termEid + ": " + sites.size());
 	
 				for (Site s : sites) {
@@ -250,6 +258,7 @@ public class StarfishExport implements InterruptableJob {
 	
 					try {
 						gradebook = (Gradebook)gradebookService.getGradebook(siteId);
+						final boolean itemsReleased = hideUnreleasedFromStudents ? gradebook.isAssignmentsDisplayed() : true;
 	
 						//get list of assignments in gradebook, skip if none
 						assignments = gradebookService.getAssignments(gradebook.getUid());
@@ -266,7 +275,7 @@ public class StarfishExport implements InterruptableJob {
 							String description = a.getExternalAppName() != null ? "From " + a.getExternalAppName() : "";
 							String dueDate = a.getDueDate() != null ? dateFormatter.format(a.getDueDate()) : "";
 							int isCounted = a.isCounted() ? 1 : 0;
-							int isVisible = a.isReleased() ? 1 : 0;
+							int isVisible = (itemsReleased && a.isReleased()) ? 1 : 0;
 							
 							if (!providerUserMap.isEmpty()) {
 								// Write out one CSV row per section (provider)
@@ -415,9 +424,10 @@ public class StarfishExport implements InterruptableJob {
 	
 	/**
 	 * Get all sites that match the criteria, filter out special sites and my workspace sites
+	 * @param excludeUnpublishedSites 
 	 * @return
 	 */
-	private List<Site> getSites(String termEid) {
+	private List<Site> getSites(String termEid, boolean excludeUnpublishedSites) {
 
 		//setup property criteria
 		//this could be extended to dynamically fill the map with properties and values from sakai.props
@@ -437,6 +447,22 @@ public class StarfishExport implements InterruptableJob {
 			//filter special sites
 			if(siteService.isSpecialSite(s.getId())){
 				continue;
+			}
+			
+			if (excludeUnpublishedSites && !s.isPublished()) {
+				continue;
+			}
+			else if (excludeUnpublishedSites) {
+				boolean gradebooksAllHidden = true;
+				for (ToolConfiguration gradebookToolConfig : s.getTools(GRADEBOOK_TOOLS)) {
+					if (toolManager.isVisible(s, gradebookToolConfig)) {
+						gradebooksAllHidden = false;
+						break;
+					}
+				}
+				if (gradebooksAllHidden) {
+					continue;
+				}
 			}
 			
 			log.debug("Site: " + s.getId());
