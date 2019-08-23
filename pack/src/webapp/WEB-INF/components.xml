@@ -18,7 +18,7 @@
 		<property name="gradebookService" ref="org_sakaiproject_service_gradebook_GradebookService" />
 		<property name="securityService" ref="org.sakaiproject.authz.api.SecurityService" />
 		<property name="groupProvider" ref="org.sakaiproject.authz.api.GroupProvider" />
-		
+		<property name="toolManager" ref="org.sakaiproject.tool.api.ToolManager"/>
 	</bean>
 	
 
