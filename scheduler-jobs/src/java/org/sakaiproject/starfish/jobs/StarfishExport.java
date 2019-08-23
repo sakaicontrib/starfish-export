@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
@@ -456,7 +457,10 @@ public class StarfishExport implements InterruptableJob {
 			else if (excludeUnpublishedSites) {
 				boolean gradebooksAllHidden = true;
 				for (ToolConfiguration gradebookToolConfig : s.getTools(GRADEBOOK_TOOLS)) {
-					if (toolManager.isVisible(s, gradebookToolConfig)) {
+					Properties toolProperties = gradebookToolConfig.getPlacementConfig();
+
+					if (!"false".equals(toolProperties.get("sakai-portal:visible"))) {
+						// Page is visible
 						gradebooksAllHidden = false;
 						break;
 					}
